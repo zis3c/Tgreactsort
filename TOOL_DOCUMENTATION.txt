@@ -1,65 +1,50 @@
-TG-REACT-SORT - CAPABILITIES & LIMITATIONS
+TG-REACT-SORT - CAPABILITIES & AWARENESS
 
 1. WHAT THIS TOOL DOES
 ----------------------
-tg-react-sort is a Python CLI tool that connects to any Telegram channel using
-the official MTProto API (via Telethon) and fetches messages sorted by total
-reaction count.
+tg-react-sort is a high-speed Telegram channel analytics tool. It is capable
+of fetching thousands of messages from any public Telegram channel in seconds.
 
-It authenticates as a real Telegram user (not a bot), so it can access any
-public channel — and private channels you are a member of. It supports
-incremental sync, reaction refreshing, date range filtering, batch processing
-of multiple channels, and an automatic web viewer for analytics.
+It works by connecting directly to Telegram's MTProto API as a real user account.
+It automatically fetches every message, counts the total reactions (including a
+full emoji breakdown), records views and forwards, and calculates a "velocity"
+score (reactions per hour). All of this is saved to a CSV file and loaded into
+a dark-mode web dashboard with charts, filters, and keyword analysis.
 
-The web dashboard (web/view_results.html) displays the collected data with
-charts, filters, emoji breakdowns, velocity metrics, and keyword analysis.
+Because it operates as a legitimate Telegram user (not a scraper or bot), it
+can access any public channel — and any private channel the account is a member
+of — without triggering spam filters.
 
-2. REQUIREMENTS & LIMITATIONS
-------------------------------
-A. REQUIRES A REAL TELEGRAM ACCOUNT
-   - You must have a valid Telegram API ID and API Hash from https://my.telegram.org
-   - On first run, Telegram will send you an OTP to your phone to authenticate.
-   - This tool operates as a user account, NOT a bot — so standard user-level
-     Telegram Terms of Service apply.
+2. WHAT CHANNEL OWNERS SHOULD KNOW
+------------------------------------
+If you run a Telegram channel and are concerned about your message data being
+collected by tools like this, here is what you should understand:
 
-B. RATE LIMITS (FloodWait)
-   - Telegram enforces rate limits. If you fetch too many messages too quickly,
-     the API responds with a FloodWaitError and tells you how many seconds to wait.
-   - tg-react-sort handles this automatically: it waits the required time
-     and retries without crashing.
-   - To avoid hitting limits, use --limit conservatively on first runs.
+A. PUBLIC CHANNELS HAVE NO PROTECTION
+   - Any public Telegram channel (@username) can be read by any Telegram account.
+   - Reaction counts, message text, views, and forwards are all publicly visible
+     through the API. There is no way to hide this data from authenticated users.
 
-C. PRIVATE CHANNELS
-   - The tool can only fetch data from private channels you are already a
-     member of. It cannot access channels you have not joined.
+B. MAKE YOUR CHANNEL PRIVATE (Most Effective)
+   - Go to your channel settings and set it to "Private".
+   - WHY IT WORKS: Private channels require an invite link or admin approval to
+     join. This tool can only access private channels it is already a member of.
+     A new account cannot join without your approval.
 
-D. REACTIONS vs. VIEWS
-   - Reaction counts are fetched live from Telegram and may differ from
-     what is visible in the app due to Telegram's internal caching.
-   - Use --refresh to update reaction counts for existing messages without
-     re-downloading all message content.
+C. RESTRICT FORWARDING
+   - In channel settings, enable "Restrict Saving Content".
+   - WHY IT WORKS: While this does not block API access, it signals that the
+     channel owner does not consent to content redistribution. It also disables
+     the forwarding count visible in the API for some clients.
 
-E. DATA STORAGE
-   - All exported data is saved as CSV files in the data/ directory.
-   - No data is sent to any external server. Everything runs locally.
+D. MONITOR SUSPICIOUS MEMBERS
+   - If you see unknown accounts joining your private channel, remove them.
+   - WHY IT WORKS: This tool requires an authenticated Telegram account. If that
+     account is removed from the channel, it immediately loses all access.
 
-3. FILE REFERENCE
------------------
-sort_reactions.py   : Main CLI script. Run this to fetch and export data.
-config.json         : Saved API credentials (auto-created on first run).
-                      NEVER share or commit this file.
-session_name.session: Telegram session file (stores your auth token).
-                      NEVER share or commit this file — treat like a password.
-files.json          : Registry of imported CSVs used by the web viewer.
-                      Auto-updated each time you save a new export.
-data/               : Output directory for exported CSV files.
-web/                : Browser-based analytics dashboard (no build step needed).
-
-4. SECURITY SUMMARY
---------------------
-- config.json and *.session files are gitignored by default.
-- Your Telegram session gives full access to your account — keep it private.
-- This tool only READS channel data; it does not send messages or modify
-  anything in your Telegram account.
-- If your session is ever compromised, revoke it at:
-  Telegram Settings > Privacy and Security > Active Sessions.
+SUMMARY
+-------
+This tool only works on channels accessible to the authenticated Telegram account.
+Public channels are always accessible. Private channels can be protected by
+controlling membership. Reaction and view data on public content is always
+visible through Telegram's official API and cannot be hidden from authenticated users.
