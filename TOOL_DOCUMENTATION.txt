@@ -1,0 +1,65 @@
+TG-REACT-SORT - CAPABILITIES & LIMITATIONS
+
+1. WHAT THIS TOOL DOES
+----------------------
+tg-react-sort is a Python CLI tool that connects to any Telegram channel using
+the official MTProto API (via Telethon) and fetches messages sorted by total
+reaction count.
+
+It authenticates as a real Telegram user (not a bot), so it can access any
+public channel — and private channels you are a member of. It supports
+incremental sync, reaction refreshing, date range filtering, batch processing
+of multiple channels, and an automatic web viewer for analytics.
+
+The web dashboard (web/view_results.html) displays the collected data with
+charts, filters, emoji breakdowns, velocity metrics, and keyword analysis.
+
+2. REQUIREMENTS & LIMITATIONS
+------------------------------
+A. REQUIRES A REAL TELEGRAM ACCOUNT
+   - You must have a valid Telegram API ID and API Hash from https://my.telegram.org
+   - On first run, Telegram will send you an OTP to your phone to authenticate.
+   - This tool operates as a user account, NOT a bot — so standard user-level
+     Telegram Terms of Service apply.
+
+B. RATE LIMITS (FloodWait)
+   - Telegram enforces rate limits. If you fetch too many messages too quickly,
+     the API responds with a FloodWaitError and tells you how many seconds to wait.
+   - tg-react-sort handles this automatically: it waits the required time
+     and retries without crashing.
+   - To avoid hitting limits, use --limit conservatively on first runs.
+
+C. PRIVATE CHANNELS
+   - The tool can only fetch data from private channels you are already a
+     member of. It cannot access channels you have not joined.
+
+D. REACTIONS vs. VIEWS
+   - Reaction counts are fetched live from Telegram and may differ from
+     what is visible in the app due to Telegram's internal caching.
+   - Use --refresh to update reaction counts for existing messages without
+     re-downloading all message content.
+
+E. DATA STORAGE
+   - All exported data is saved as CSV files in the data/ directory.
+   - No data is sent to any external server. Everything runs locally.
+
+3. FILE REFERENCE
+-----------------
+sort_reactions.py   : Main CLI script. Run this to fetch and export data.
+config.json         : Saved API credentials (auto-created on first run).
+                      NEVER share or commit this file.
+session_name.session: Telegram session file (stores your auth token).
+                      NEVER share or commit this file — treat like a password.
+files.json          : Registry of imported CSVs used by the web viewer.
+                      Auto-updated each time you save a new export.
+data/               : Output directory for exported CSV files.
+web/                : Browser-based analytics dashboard (no build step needed).
+
+4. SECURITY SUMMARY
+--------------------
+- config.json and *.session files are gitignored by default.
+- Your Telegram session gives full access to your account — keep it private.
+- This tool only READS channel data; it does not send messages or modify
+  anything in your Telegram account.
+- If your session is ever compromised, revoke it at:
+  Telegram Settings > Privacy and Security > Active Sessions.
