@@ -53,8 +53,9 @@ A high-performance Telegram channel analytics tool built with Python and `Teleth
 ## Project Structure
 
 ```
-tg-react-sort/
+tgreactsort/
 ├── sort_reactions.py       # Main CLI — fetch, sort, and export messages
+├── open_viewer.bat         # Windows shortcut to start HTTP server and open dashboard
 ├── requirements.txt        # Python dependencies
 ├── .env.example            # Credentials template (copy to .env)
 ├── config.json             # Saved API credentials — auto-created, gitignored
