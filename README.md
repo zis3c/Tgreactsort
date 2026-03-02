@@ -59,11 +59,11 @@ tgreactsort/
 ├── open_viewer.bat         # Windows shortcut to start HTTP server and open dashboard
 ├── requirements.txt        # Python dependencies
 ├── .env.example            # Credentials template (copy to .env)
-├── config.json             # Saved API credentials — auto-created, gitignored
+├── config.json             # Saved API credentials - auto-created, gitignored
 ├── files.json              # Registry of imported CSVs used by the web viewer
 ├── TOOL_DOCUMENTATION.md   # Capabilities and awareness guide
 ├── CONTRIBUTING.md         # Contribution guidelines
-├── data/                   # Exported CSVs — one file per channel, gitignored
+├── data/                   # Exported CSVs - one file per channel, gitignored
 │   └── channel_name.csv
 └── web/                    # Browser-based analytics dashboard
     ├── view_results.html   # Main dashboard page
