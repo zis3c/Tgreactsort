@@ -53,7 +53,7 @@ A high-performance Telegram channel analytics tool built with Python and `Teleth
 
 ## Project Structure
 
-```
+```text
 tgreactsort/
 ├── sort_reactions.py       # Main CLI — fetch, sort, and export messages
 ├── open_viewer.bat         # Windows shortcut to start HTTP server and open dashboard
@@ -63,6 +63,9 @@ tgreactsort/
 ├── files.json              # Registry of imported CSVs used by the web viewer
 ├── TOOL_DOCUMENTATION.md   # Capabilities and awareness guide
 ├── CONTRIBUTING.md         # Contribution guidelines
+├── LICENSE                 # MIT License file
+├── README.md               # Project documentation
+├── preview.png             # Web dashboard preview image
 ├── data/                   # Exported CSVs — one file per channel, gitignored
 │   └── channel_name.csv
 └── web/                    # Browser-based analytics dashboard
@@ -72,6 +75,8 @@ tgreactsort/
 ```
 
 ## Usage
+
+📺 **Video Tutorial**: [Watch how to use the repo here](https://youtu.be/5oVx4ZH_fLc)
 
 ### Interactive Mode
 Simply run the script without arguments:
