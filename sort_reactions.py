@@ -487,6 +487,33 @@ def main(channel, channels, limit, top, start_date, end_date, refresh, full, wat
         except Exception as e:
             console.print(f"[bold red][!] Error saving config file:[/bold red] {e}")
 
+    # --- Authenticate TelegramClient here to smooth UX ---
+    from telethon import TelegramClient
+    from telethon.errors import SessionExpiredError, AuthKeyError, ApiIdInvalidError
+
+    async def ensure_authorized():
+        # Using .start() gracefully handles interactive login prompts or re-uses session
+        client = TelegramClient('session_name', api_id, api_hash)
+        await client.start()
+        await client.disconnect()
+
+    try:
+        asyncio.run(ensure_authorized())
+    except ApiIdInvalidError:
+        console.print("\n[bold red][!] Error: The API ID/Hash combination is invalid.[/bold red]")
+        console.print("[dim]Please check your credentials at https://my.telegram.org and try again.[/dim]")
+        return
+    except (SessionExpiredError, AuthKeyError):
+        console.print("\n[bold red][!] Session expired or invalid.[/bold red] Deleting saved session...")
+        for f in [SESSION_FILE, CONFIG_FILE]:
+            if os.path.exists(f):
+                try: os.remove(f)
+                except: pass
+        console.print("[bold yellow][*] Please re-run the script to authenticate with fresh credentials.[/bold yellow]")
+        return
+    except Exception as e:
+        console.print(f"[bold yellow][!] Could not verify session right now:[/bold yellow] {e}")
+
     # If not provided via CLI args, prompt for it
     if not channel:
         console.print()
