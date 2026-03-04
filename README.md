@@ -9,7 +9,11 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)
 
-![tgreactsort Web Dashboard Preview](preview.png)
+<p align="center">
+  <img src="preview.png" alt="tgreactsort Web Dashboard Preview" width="800">
+</p>
+
+📺 **Video Tutorial:** [**Watch how to use the repo here**](https://youtu.be/VaF5Oofap6E)
 
 A high-performance Telegram channel analytics tool built with Python and `Telethon`. Fetches messages from any channel, ranks them by total reactions, and launches a dark-mode web dashboard for deep engagement analysis.
 
@@ -112,6 +116,10 @@ python sort_reactions.py --channel @ExampleChannel --limit 1000 --top 20
 4. **Merge & Sort**: Merges new data with existing records, detects edits, and sorts by total reactions.
 5. **Export**: Saves results to `data/<channel>.csv` and updates `files.json` for the web viewer.
 6. **Web Viewer**: Launches a local HTTP server and opens the dashboard automatically in your browser.
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on reporting bugs, suggesting enhancements, and submitting pull requests.
 
 ## License
 

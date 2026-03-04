@@ -16,3 +16,6 @@ data/
 
 # Logs
 *.log
+
+# Web viewer registry
+files.json
