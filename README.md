@@ -36,8 +36,8 @@ A high-performance Telegram channel analytics tool built with Python and `Teleth
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/zis3c/tg-react-sort
-   cd tg-react-sort
+  git clone https://github.com/zis3c/Tgreactsort
+  cd Tgreactsort
    ```
 
 2. **Install dependencies**
@@ -59,9 +59,13 @@ A high-performance Telegram channel analytics tool built with Python and `Teleth
 
 ```
 tgreactsort/
+├── SKILL.md                # Agent skill definition (Agensi / SKILL.md standard)
 ├── sort_reactions.py       # Main CLI - fetch, sort, and export messages
 ├── open_viewer.bat         # Windows shortcut to start HTTP server and open dashboard
 ├── requirements.txt        # Python dependencies
+├── requirements-dev.txt    # Test dependencies
+├── pytest.ini              # Test configuration
+├── tests/                  # Unit tests for CLI and helpers
 ├── .env.example            # Credentials template (copy to .env)
 ├── config.json             # Saved API credentials - auto-created, gitignored
 ├── files.json              # Registry of imported CSVs used by the web viewer
@@ -92,21 +96,32 @@ python sort_reactions.py --help
 
 **Example:**
 ```bash
-python sort_reactions.py --channel @ExampleChannel --limit 1000 --top 20
+python sort_reactions.py --channel "@ExampleChannel" --limit 1000 --top 20
 ```
 
 | Argument | Description | Default |
 |----------|-------------|---------|
 | `--channel` | Target channel username or link (`@channel`, `t.me/channel`) | - |
-| `--channels` | Batch mode: multiple channels (repeatable) | - |
+| `--channels` | Batch mode: multiple channels, e.g. `--channels "@a" --channels "@b"` (repeatable) | - |
 | `--limit` | Number of recent messages to fetch | `1000` |
 | `--top` | Number of top messages to display in terminal | `10` |
+| `--json` | Headless JSON output for agents (no prompts, no browser) | `False` |
 | `--start-date` | Fetch messages from this date (`YYYY-MM-DD`) | - |
 | `--end-date` | Fetch messages up to this date (`YYYY-MM-DD`) | - |
 | `--refresh` | Update reaction counts on existing messages only | `False` |
 | `--full` | Ignore cache - full fresh fetch, overwrites CSV | `False` |
 | `--watch` | Continuous refresh loop | `False` |
 | `--interval` | Minutes between `--watch` refreshes | `30` |
+
+### Agent / JSON Mode
+
+`--json` is built for AI agents and scripts. It never prompts, never opens the dashboard and writes machine-readable JSON to stdout:
+
+```bash
+python sort_reactions.py --channel "@ExampleChannel" --limit 1000 --top 20 --json
+```
+
+The first Telegram login is still interactive (phone number and code), so the user must run the script once in their own terminal before headless runs work. Use `API_ID` and `API_HASH` environment variables or a `.env` file for credentials. See [SKILL.md](SKILL.md) for the JSON schema and agent workflow.
 
 ## How It Works
 
@@ -116,6 +131,17 @@ python sort_reactions.py --channel @ExampleChannel --limit 1000 --top 20
 4. **Merge & Sort**: Merges new data with existing records, detects edits, and sorts by total reactions.
 5. **Export**: Saves results to `data/<channel>.csv` and updates `files.json` for the web viewer.
 6. **Web Viewer**: Launches a local HTTP server and opens the dashboard automatically in your browser.
+
+## Testing
+
+Install the test dependencies and run the suite from the repository root:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest
+```
+
+The tests cover the JSON output contract, JSON error paths, batch mode, reaction label resolution, message links and record formatting. No Telegram account or network access is needed.
 
 ## Contributing
 

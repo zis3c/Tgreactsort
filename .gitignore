@@ -19,3 +19,5 @@ data/
 
 # Web viewer registry
 files.json
+# Test cache
+.pytest_cache/

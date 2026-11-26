@@ -37,7 +37,70 @@ console = Console()
 SESSION_FILE = 'session_name.session'
 CONFIG_FILE = 'config.json'
 
-async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=None, end_date=None, refresh=False, full=False):
+
+def _top_records(df, top_n):
+    records = []
+    for _, row in df.head(top_n).iterrows():
+        def value(key, default):
+            v = row.get(key, default)
+            if isinstance(v, float) and v != v:
+                return default
+            return v
+        records.append({
+            'id': int(value('id', 0)),
+            'date': str(value('date', '')),
+            'total_reactions': int(value('total_reactions', 0)),
+            'breakdown': str(value('breakdown', 'None')),
+            'views': int(value('views', 0)),
+            'forwards': int(value('forwards', 0)),
+            'velocity': round(float(value('velocity', 0)), 3),
+            'text': str(value('text', '')),
+            'link': str(value('link', '')),
+        })
+    return records
+
+
+def _message_link(target_channel, entity, message_id):
+    raw = re.sub(r'^(https?://)?(t\.me/|telegram\.me/)', '', target_channel.strip())
+    raw = raw.lstrip('@')
+    if raw.startswith('s/'):
+        raw = raw[2:]
+    if raw.startswith('c/'):
+        parts = raw.split('/')
+        entity_id = parts[1] if len(parts) > 1 and parts[1] else getattr(entity, 'id', 'Unknown')
+        return f"https://t.me/c/{entity_id}/{message_id}"
+    slug = raw.split('/')[0].split('?')[0]
+    if slug and not slug.isdigit() and not slug.startswith('+'):
+        return f"https://t.me/{slug}/{message_id}"
+    username = getattr(entity, 'username', None)
+    if username:
+        return f"https://t.me/{username}/{message_id}"
+    return f"https://t.me/c/{getattr(entity, 'id', 'Unknown')}/{message_id}"
+
+
+async def _reaction_label(client, rxn, cache):
+    from telethon.tl.types import ReactionPaid
+    from telethon.tl.functions.messages import GetCustomEmojiDocumentsRequest
+
+    if isinstance(rxn, ReactionPaid):
+        return '⭐'
+    emoticon = getattr(rxn, 'emoticon', None)
+    if emoticon:
+        return emoticon
+    doc_id = getattr(rxn, 'document_id', None)
+    if not doc_id:
+        return str(rxn)
+    if doc_id not in cache:
+        try:
+            docs = await client(GetCustomEmojiDocumentsRequest(document_id=[doc_id]))
+            alt = next((getattr(a, 'alt', None) for a in docs[0].attributes if getattr(a, 'alt', None)), None)
+            cache[doc_id] = alt or f'custom emoji {doc_id}'
+        except Exception:
+            cache[doc_id] = f'custom emoji {doc_id}'
+    return cache[doc_id]
+
+
+async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=None, end_date=None, refresh=False, full=False, json_output=False):
     from telethon import TelegramClient
     from telethon.tl.types import Message
     from telethon.errors import ApiIdInvalidError, FloodWaitError
@@ -73,6 +136,8 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
         log.info(f"Full fetch mode for {target_channel}")
     try:
         async with TelegramClient('session_name', api_id, api_hash) as client:
+            emoji_cache = {}
+
             # ── REFRESH MODE ────────────────────────────────────
             if refresh and existing_data:
                 console.print(f"[bold yellow]🔄 Refresh mode: updating reactions for {len(existing_data)} messages...[/bold yellow]")
@@ -94,8 +159,7 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                             if msg.reactions and msg.reactions.results:
                                 for rxn in msg.reactions.results:
                                     cnt = rxn.count; total_r += cnt
-                                    try: lbl = rxn.reaction.emoticon
-                                    except AttributeError: lbl = str(rxn.reaction)
+                                    lbl = await _reaction_label(client, rxn.reaction, emoji_cache)
                                     details.append(f"{lbl}: {cnt}")
                             updated[msg.id] = {
                                 'total_reactions': total_r,
@@ -109,6 +173,7 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                     rid = int(row['id'])
                     if rid in updated:
                         row.update(updated[rid])
+                    row['link'] = _message_link(target_channel, entity, rid)
                 log.info(f"Refresh complete: updated {len(updated)} messages")
                 console.print(f"[bold green]✓ Refreshed {len(updated)} messages.[/bold green]")
                 # Save & return
@@ -119,7 +184,13 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                 csv_path = os.path.join('data', f'{safe_channel_name}.csv')
                 df_sorted.to_csv(csv_path, index=False)
                 console.print(f"[bold green]Saved refreshed data to {csv_path}[/bold green]")
-                return
+                return {
+                    'ok': True,
+                    'channel': target_channel,
+                    'total': len(df_sorted),
+                    'csv': csv_path,
+                    'top': _top_records(df_sorted, top_n),
+                }
 
             data = []
             try:
@@ -152,18 +223,10 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                             for reaction in message.reactions.results:
                                 count = reaction.count
                                 total_reactions += count
-                                try:
-                                    label = reaction.reaction.emoticon
-                                except AttributeError:
-                                    label = str(reaction.reaction)
+                                label = await _reaction_label(client, reaction.reaction, emoji_cache)
                                 reaction_details.append(f"{label}: {count}")
-                        
-                        username = getattr(entity, 'username', None)
-                        if username:
-                            link = f"https://t.me/{username}/{message.id}"
-                        else:
-                            entity_id = getattr(entity, 'id', 'Unknown')
-                            link = f"https://t.me/c/{entity_id}/{message.id}"
+
+                        link = _message_link(target_channel, entity, message.id)
 
                         # Save FULL text (not truncated)
                         full_text  = message.text or ''
@@ -191,15 +254,16 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                 msg = f"Could not find channel '{target_channel}'."
                 console.print(f"\n[bold red][!] Error:[/bold red] {msg}")
                 log.error(msg)
-                return
+                return {'ok': False, 'channel': target_channel, 'error': msg}
             except FloodWaitError as e:
+                msg = f"Telegram FloodWait: retry after {e.seconds} seconds."
                 console.print(f"[bold red]⏳ FloodWait: Telegram asks us to wait {e.seconds}s. Aborting fetch for this channel.[/bold red]")
                 log.warning(f"FloodWaitError: {e.seconds}s wait required. Aborting.")
-                return
+                return {'ok': False, 'channel': target_channel, 'error': msg}
             except Exception as e:
                 console.print(f"\n[bold red][!] Error fetching messages:[/bold red] {e}")
                 log.error(f"Error fetching messages: {e}")
-                return
+                return {'ok': False, 'channel': target_channel, 'error': str(e)}
 
             console.print(f"[bold green]✓ Fetched {len(data)} new messages.[/bold green]")
             log.info(f"Fetched {len(data)} new messages from {target_channel}")
@@ -215,6 +279,7 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                         old = existing_map[mid]
                         changed = (
                             str(old.get('total_reactions', '')) != str(new_row['total_reactions']) or
+                            str(old.get('breakdown', '')) != str(new_row['breakdown']) or
                             str(old.get('text', ''))[:100] != str(new_row.get('text', ''))[:100]
                         )
                         if changed:
@@ -254,11 +319,9 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                             if message.reactions and message.reactions.results:
                                 for rxn in message.reactions.results:
                                     cnt = rxn.count; total_r += cnt
-                                    try: lbl = rxn.reaction.emoticon
-                                    except AttributeError: lbl = str(rxn.reaction)
+                                    lbl = await _reaction_label(client, rxn.reaction, emoji_cache)
                                     details.append(f"{lbl}: {cnt}")
-                            uname = getattr(entity, 'username', None)
-                            lnk = f"https://t.me/{uname}/{message.id}" if uname else f"https://t.me/c/{getattr(entity,'id','')}/{message.id}"
+                            lnk = _message_link(target_channel, entity, message.id)
                             ft = message.text or ''
                             now_utc2 = datetime.now(timezone.utc)
                             mdt = message.date if message.date.tzinfo else message.date.replace(tzinfo=timezone.utc)
@@ -284,8 +347,9 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
 
             
             if not merged:
-                console.print(f"[bold yellow]No reactions found in the last {limit} messages.[/bold yellow]")
-                return
+                msg = f"No reactions found in the last {limit} messages."
+                console.print(f"[bold yellow]{msg}[/bold yellow]")
+                return {'ok': True, 'channel': target_channel, 'total': 0, 'csv': None, 'top': [], 'message': msg}
 
             # Sort by Total Reactions
             df = pd.DataFrame(merged)
@@ -328,18 +392,20 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
             csv_path = os.path.join('data', csv_filename)
             os.makedirs('data', exist_ok=True)
             
-            if Confirm.ask(f"[bold cyan]Save results to data/{csv_filename}?[/bold cyan]", default=True):
+            if json_output or Confirm.ask(f"[bold cyan]Save results to data/{csv_filename}?[/bold cyan]", default=True):
                 df_sorted.to_csv(csv_path, index=False)
                 console.print(f"[bold green]Saved to data/{csv_filename}[/bold green]")
                 
                 # Update files.json — store as 'data/channel.csv' (relative to server root)
                 files_json_path = 'files.json'
                 existing_files = []
+                files_meta = {}
                 if os.path.exists(files_json_path):
                     try:
                         with open(files_json_path, 'r') as f:
                             data_json = json.load(f)
                             existing_files = data_json.get('files', [])
+                            files_meta = data_json.get('meta', {})
                     except Exception:
                         pass
                 
@@ -348,40 +414,51 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                     existing_files.append(entry)
                 
                 # Store metadata (row count) for the UI dropdown
-                files_meta = data_json.get('meta', {}) if os.path.exists(files_json_path) else {}
                 files_meta[entry] = {'count': len(df_sorted)}
                     
                 with open(files_json_path, 'w') as f:
                     json.dump({"files": existing_files, "meta": files_meta}, f, indent=2)
 
-                # Auto-open viewer with the specific file loaded
-                console.print("[bold yellow]Launching UI Viewer...[/bold yellow]")
-                try:
-                    import webbrowser, threading, time
-                    viewer_url = f"http://localhost:8000/web/view_results.html?file={entry}"
-                    # Open browser after a short delay to let the server boot
-                    def open_browser():
-                        time.sleep(1.2)
-                        webbrowser.open(viewer_url)
-                    threading.Thread(target=open_browser, daemon=True).start()
-                    # Start the HTTP server if not already running
-                    import socket
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                        in_use = s.connect_ex(('localhost', 8000)) == 0
-                    if not in_use:
-                        console.print("[dim]Starting local HTTP server in the background...[/dim]")
-                        subprocess.Popen([sys.executable, "-m", "http.server", "8000"])
-                    else:
-                        console.print("[dim]Local HTTP server is already running on port 8000.[/dim]")
-                except Exception as e:
-                    console.print(f"[bold red][!] Could not auto-launch viewer:[/bold red] {e}")
-                    console.print(f"[dim]Manually open: http://localhost:8000/web/view_results.html?file={entry}[/dim]")
+                if not json_output:
+                    # Auto-open viewer with the specific file loaded
+                    console.print("[bold yellow]Launching UI Viewer...[/bold yellow]")
+                    try:
+                        import webbrowser, threading, time
+                        viewer_url = f"http://localhost:8000/web/view_results.html?file={entry}"
+                        # Open browser after a short delay to let the server boot
+                        def open_browser():
+                            time.sleep(1.2)
+                            webbrowser.open(viewer_url)
+                        threading.Thread(target=open_browser, daemon=True).start()
+                        # Start the HTTP server if not already running
+                        import socket
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            in_use = s.connect_ex(('localhost', 8000)) == 0
+                        if not in_use:
+                            console.print("[dim]Starting local HTTP server in the background...[/dim]")
+                            subprocess.Popen([sys.executable, "-m", "http.server", "8000"])
+                        else:
+                            console.print("[dim]Local HTTP server is already running on port 8000.[/dim]")
+                    except Exception as e:
+                        console.print(f"[bold red][!] Could not auto-launch viewer:[/bold red] {e}")
+                        console.print(f"[dim]Manually open: http://localhost:8000/web/view_results.html?file={entry}[/dim]")
+
+            return {
+                'ok': True,
+                'channel': target_channel,
+                'total': len(df_sorted),
+                'csv': csv_path,
+                'top': _top_records(df_sorted, top_n),
+            }
 
     except ApiIdInvalidError:
+        msg = "The API ID/Hash combination is invalid. Check credentials at https://my.telegram.org."
         console.print("\n[bold red][!] Error: The API ID/Hash combination is invalid.[/bold red]")
         console.print("[dim]Please check your credentials at https://my.telegram.org and try again.[/dim]")
+        return {'ok': False, 'channel': target_channel, 'error': msg}
     except Exception as e:
         console.print(f"\n[bold red][!] An unexpected error occurred:[/bold red] {e}")
+        return {'ok': False, 'channel': target_channel, 'error': str(e)}
 
 class RichHelpCommand(click.Command):
     def format_help(self, ctx, formatter):
@@ -395,7 +472,7 @@ class RichHelpCommand(click.Command):
         table.add_column("Default", style="dim")
 
         for param in self.get_params(ctx):
-            name = "--" + param.name.replace("_", "-")
+            name = ", ".join(param.opts) if param.opts else "--" + param.name.replace("_", "-")
             if param.secondary_opts:
                  name += ", " + ", ".join(param.secondary_opts)
             
@@ -411,17 +488,28 @@ class RichHelpCommand(click.Command):
 @click.option('--channels', multiple=True, help='Batch mode: multiple channels (e.g., --channels @a --channels @b)')
 @click.option('--limit', default=1000, help='How many recent messages to fetch from the channel', type=int)
 @click.option('--top', default=10, help='How many top messages to display', type=int)
+@click.option('--json', 'json_mode', is_flag=True, default=False, help='Headless machine-readable JSON output for agents (no prompts, no browser)')
 @click.option('--start-date', default=None, help='Fetch messages starting from this date (YYYY-MM-DD)')
 @click.option('--end-date', default=None, help='Fetch messages up to this date (YYYY-MM-DD)')
 @click.option('--refresh', is_flag=True, default=False, help='Re-fetch reactions for all existing messages without re-downloading content')
 @click.option('--full', is_flag=True, default=False, help='Ignore existing data and do a full fresh fetch (overwrites CSV)')
 @click.option('--watch', is_flag=True, default=False, help='Loop indefinitely, re-fetching on a timer')
 @click.option('--interval', default=30, type=int, help='Minutes between --watch refreshes (default: 30)')
-def main(channel, channels, limit, top, start_date, end_date, refresh, full, watch, interval):
+def main(channel, channels, limit, top, json_mode, start_date, end_date, refresh, full, watch, interval):
     """Telegram Reactions Sorter"""
-    
-    # Interactive mode if channel is not provided
-    if not channel:
+
+    global console
+    if json_mode:
+        console = Console(quiet=True, stderr=True)
+        if not (channel or channels):
+            print(json.dumps({'ok': False, 'error': 'Provide --channel or --channels when using --json.'}))
+            raise SystemExit(1)
+        if watch:
+            print(json.dumps({'ok': False, 'error': '--watch cannot be combined with --json.'}))
+            raise SystemExit(1)
+
+    # Interactive mode if no channel was provided
+    if not channel and not channels:
         console.print(r"""[bold #2AABEE]
 ╺━┓╻┏━┓┏━┓┏━╸   ╺┳╸┏━╸┏━┓┏━┓┏━┓╺┳╸┏━┓┏━╸┏━┓┏━╸╺┳╸
 ┏━┛┃┗━┓╺━┫┃      ┃ ┃╺┓┗━┓┃ ┃┣┳┛ ┃ ┣┳┛┣╸ ┣━┫┃   ┃ 
@@ -429,8 +517,13 @@ def main(channel, channels, limit, top, start_date, end_date, refresh, full, wat
 [/bold #2AABEE]""")
 
     # --- Session Handling ---
-    api_id = None
-    api_hash = None
+    api_id = os.getenv('API_ID')
+    if api_id:
+        try:
+            api_id = int(api_id)
+        except ValueError:
+            api_id = None
+    api_hash = os.getenv('API_HASH') or None
     use_existing_session = False
     
     if os.path.exists(SESSION_FILE):
@@ -450,17 +543,22 @@ def main(channel, channels, limit, top, start_date, end_date, refresh, full, wat
                 console.print("[*] Old session deleted. Please enter new credentials.", style="bold cyan")
 
     # Load from config if reusing session
-    if use_existing_session and os.path.exists(CONFIG_FILE):
+    if use_existing_session and os.path.exists(CONFIG_FILE) and (not api_id or not api_hash):
         try:
             with open(CONFIG_FILE, 'r') as f:
                 config = json.load(f)
-                api_id = config.get('API_ID')
-                api_hash = config.get('API_HASH')
+                if not api_id:
+                    api_id = config.get('API_ID')
+                if not api_hash:
+                    api_hash = config.get('API_HASH')
         except Exception as e:
             console.print(f"[bold red][!] Error reading config file:[/bold red] {e}")
 
     # If missing credentials
     if not api_id or not api_hash:
+        if json_mode:
+            print(json.dumps({'ok': False, 'error': 'Telegram API credentials missing. Set API_ID and API_HASH environment variables or a .env file in the skill directory.'}))
+            raise SystemExit(1)
         if use_existing_session:
              console.print("[*] API credentials not found in config. Please re-enter them.", style="bold yellow")
         while not api_id:
@@ -491,31 +589,50 @@ def main(channel, channels, limit, top, start_date, end_date, refresh, full, wat
     from telethon import TelegramClient
     from telethon.errors import SessionExpiredError, AuthKeyError, ApiIdInvalidError
 
-    async def ensure_authorized():
-        # Using .start() gracefully handles interactive login prompts or re-uses session
-        client = TelegramClient('session_name', api_id, api_hash)
-        await client.start()
-        await client.disconnect()
+    if json_mode:
+        async def session_authorized():
+            if not os.path.exists(SESSION_FILE):
+                return False
+            client = TelegramClient('session_name', api_id, api_hash)
+            await client.connect()
+            try:
+                return await client.is_user_authorized()
+            finally:
+                await client.disconnect()
 
-    try:
-        asyncio.run(ensure_authorized())
-    except ApiIdInvalidError:
-        console.print("\n[bold red][!] Error: The API ID/Hash combination is invalid.[/bold red]")
-        console.print("[dim]Please check your credentials at https://my.telegram.org and try again.[/dim]")
-        return
-    except (SessionExpiredError, AuthKeyError):
-        console.print("\n[bold red][!] Session expired or invalid.[/bold red] Deleting saved session...")
-        for f in [SESSION_FILE, CONFIG_FILE]:
-            if os.path.exists(f):
-                try: os.remove(f)
-                except: pass
-        console.print("[bold yellow][*] Please re-run the script to authenticate with fresh credentials.[/bold yellow]")
-        return
-    except Exception as e:
-        console.print(f"[bold yellow][!] Could not verify session right now:[/bold yellow] {e}")
+        try:
+            authorized = asyncio.run(session_authorized())
+        except Exception:
+            authorized = False
+        if not authorized:
+            print(json.dumps({'ok': False, 'error': 'No authorized Telegram session found. Ask the user to run the setup once in their terminal: python sort_reactions.py --channel <channel>'}))
+            raise SystemExit(1)
+    else:
+        async def ensure_authorized():
+            # Using .start() gracefully handles interactive login prompts or re-uses session
+            client = TelegramClient('session_name', api_id, api_hash)
+            await client.start()
+            await client.disconnect()
+
+        try:
+            asyncio.run(ensure_authorized())
+        except ApiIdInvalidError:
+            console.print("\n[bold red][!] Error: The API ID/Hash combination is invalid.[/bold red]")
+            console.print("[dim]Please check your credentials at https://my.telegram.org and try again.[/dim]")
+            return
+        except (SessionExpiredError, AuthKeyError):
+            console.print("\n[bold red][!] Session expired or invalid.[/bold red] Deleting saved session...")
+            for f in [SESSION_FILE, CONFIG_FILE]:
+                if os.path.exists(f):
+                    try: os.remove(f)
+                    except: pass
+            console.print("[bold yellow][*] Please re-run the script to authenticate with fresh credentials.[/bold yellow]")
+            return
+        except Exception as e:
+            console.print(f"[bold yellow][!] Could not verify session right now:[/bold yellow] {e}")
 
     # If not provided via CLI args, prompt for it
-    if not channel:
+    if not channel and not channels:
         console.print()
         
         console.print(Panel(
@@ -549,20 +666,33 @@ def main(channel, channels, limit, top, start_date, end_date, refresh, full, wat
             while True:
                 for ch in (all_channels or [channel]):
                     if ch:
-                        asyncio.run(run_sort(api_id, api_hash, ch, limit, top, start_date, end_date, refresh=True, full=False))
+                        asyncio.run(run_sort(api_id, api_hash, ch, limit, top, start_date, end_date, refresh=True, full=False, json_output=json_mode))
                 console.print(f"[dim]Next refresh in {interval} min... (Ctrl+C to stop)[/dim]")
                 for remaining in range(interval * 60, 0, -1):
                     console.print(f"  ⏱ {remaining // 60}m {remaining % 60}s remaining...", end="\r")
                     _time.sleep(1)
                 console.print()
         else:
+            results = []
             for ch in (all_channels or [channel]):
                 if ch:
-                    asyncio.run(run_sort(api_id, api_hash, ch, limit, top, start_date, end_date, refresh=refresh, full=full))
+                    result = asyncio.run(run_sort(api_id, api_hash, ch, limit, top, start_date, end_date, refresh=refresh, full=full, json_output=json_mode))
+                    if result:
+                        results.append(result)
                 elif not all_channels:
-                    asyncio.run(run_sort(api_id, api_hash, channel, limit, top, start_date, end_date, refresh=refresh, full=full))
+                    result = asyncio.run(run_sort(api_id, api_hash, channel, limit, top, start_date, end_date, refresh=refresh, full=full, json_output=json_mode))
+                    if result:
+                        results.append(result)
                     break
+            if json_mode:
+                ok = bool(results) and all(r.get('ok') for r in results)
+                print(json.dumps({'ok': ok, 'results': results}))
+                if not ok:
+                    raise SystemExit(1)
     except (SessionExpiredError, AuthKeyError):
+        if json_mode:
+            print(json.dumps({'ok': False, 'error': 'Telegram session expired. Ask the user to run the setup again in their terminal.'}))
+            raise SystemExit(1)
         console.print("\n[bold red][!] Session expired or invalid.[/bold red] Deleting saved session...")
         for f in [SESSION_FILE, CONFIG_FILE]:
             if os.path.exists(f):
@@ -575,6 +705,9 @@ if __name__ == '__main__':
     except click.exceptions.Abort:
          console.print("\n[bold red][!] Aborted![/bold red]")
     except click.exceptions.UsageError as e:
+         if '--json' in sys.argv:
+             print(json.dumps({'ok': False, 'error': e.message}))
+             raise SystemExit(1)
          console.print(f"\n[bold red]Error:[/bold red] {e.message}")
          if e.ctx:
              console.print(f"[dim]{e.ctx.get_help()}[/dim]")
@@ -585,4 +718,7 @@ if __name__ == '__main__':
     except EOFError:
         console.print("\n[bold red][!] Aborted! (Input stream closed)[/bold red]")
     except Exception as e:
+         if '--json' in sys.argv:
+             print(json.dumps({'ok': False, 'error': str(e)}))
+             raise SystemExit(1)
          console.print(f"\n[bold red]Unexpected Error:[/bold red] {e}")
