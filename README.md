@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Telegram Reactions Sorter logo" width="140">
+</p>
+
 # Telegram Reactions Sorter
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)
@@ -8,6 +12,7 @@
 ![Chart.js](https://img.shields.io/badge/Chart.js-Web-FF6384?logo=chartdotjs&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 ![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)
+[![tests](https://github.com/zis3c/Tgreactsort/actions/workflows/tests.yml/badge.svg)](https://github.com/zis3c/Tgreactsort/actions/workflows/tests.yml)
 
 <p align="center">
   <img src="preview.png" alt="tgreactsort Web Dashboard Preview" width="800">
@@ -59,6 +64,9 @@ A high-performance Telegram channel analytics tool built with Python and `Teleth
 
 ```
 tgreactsort/
+├── assets/                 # Brand logo for the marketplace listing
+│   ├── logo.png
+│   └── logo.svg
 ├── SKILL.md                # Agent skill definition (Agensi / SKILL.md standard)
 ├── sort_reactions.py       # Main CLI - fetch, sort, and export messages
 ├── open_viewer.bat         # Windows shortcut to start HTTP server and open dashboard
