@@ -1,5 +1,4 @@
 import asyncio
-import csv
 import os
 import re
 import subprocess
@@ -7,7 +6,15 @@ import logging
 from datetime import datetime, timezone
 import json
 import sys
+
+import click
 from dotenv import load_dotenv
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt, IntPrompt, Confirm
+from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich import box
 
 load_dotenv()  # load .env if present
 
@@ -23,14 +30,6 @@ log = logging.getLogger(__name__)
 # Force output to UTF-8 to prevent Windows UnicodeEncodeError with emojis
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding='utf-8')
-
-import click
-from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Prompt, IntPrompt, Confirm
-from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-from rich import box
 
 console = Console()
 
@@ -102,14 +101,16 @@ async def _reaction_label(client, rxn, cache):
 
 async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=None, end_date=None, refresh=False, full=False, json_output=False):
     from telethon import TelegramClient
-    from telethon.tl.types import Message
     from telethon.errors import ApiIdInvalidError, FloodWaitError
     import pandas as pd
 
     def parse_date(date_str):
-        if not date_str: return None
-        try: return datetime.strptime(date_str, "%Y-%m-%d").date()
-        except: return None
+        if not date_str:
+            return None
+        try:
+            return datetime.strptime(date_str, "%Y-%m-%d").date()
+        except Exception:
+            return None
         
     s_date = parse_date(start_date)
     e_date = parse_date(end_date)
@@ -153,12 +154,14 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                         batch = ids[i:i+100]
                         msgs = await client.get_messages(entity, ids=batch)
                         for msg in msgs:
-                            if not msg: continue
+                            if not msg:
+                                continue
                             total_r = 0
                             details = []
                             if msg.reactions and msg.reactions.results:
                                 for rxn in msg.reactions.results:
-                                    cnt = rxn.count; total_r += cnt
+                                    cnt = rxn.count
+                                    total_r += cnt
                                     lbl = await _reaction_label(client, rxn.reaction, emoji_cache)
                                     details.append(f"{lbl}: {cnt}")
                             updated[msg.id] = {
@@ -296,7 +299,8 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                 merged = list(existing_map.values()) + [r for r in data if r['id'] not in existing_map]
                 suffix = f", {edited} edited" if edited else ""
                 console.print(f"[bold green]✓ Merged: {len(merged)} total messages ({len(data)} new + {len(existing_data)} existing{suffix})[/bold green]")
-                if edited: log.info(f"Edit-detection: {edited} messages had changed content and were patched")
+                if edited:
+                    log.info(f"Edit-detection: {edited} messages had changed content and were patched")
             else:
                 merged = data
 
@@ -315,10 +319,12 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                             progress.advance(btask)
                             if s_date and message.date.date() < s_date:
                                 break
-                            total_r = 0; details = []
+                            total_r = 0
+                            details = []
                             if message.reactions and message.reactions.results:
                                 for rxn in message.reactions.results:
-                                    cnt = rxn.count; total_r += cnt
+                                    cnt = rxn.count
+                                    total_r += cnt
                                     lbl = await _reaction_label(client, rxn.reaction, emoji_cache)
                                     details.append(f"{lbl}: {cnt}")
                             lnk = _message_link(target_channel, entity, message.id)
@@ -369,7 +375,8 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
             
             for index, row in df_sorted.head(top_n).iterrows():
                 preview = row.get('text_preview') or row.get('text') or ''
-                if not isinstance(preview, str): preview = str(preview) if preview == preview else ''
+                if not isinstance(preview, str):
+                    preview = str(preview) if preview == preview else ''
                 table.add_row(
                     str(row['total_reactions']),
                     preview[:60],
@@ -423,7 +430,9 @@ async def run_sort(api_id, api_hash, target_channel, limit, top_n, start_date=No
                     # Auto-open viewer with the specific file loaded
                     console.print("[bold yellow]Launching UI Viewer...[/bold yellow]")
                     try:
-                        import webbrowser, threading, time
+                        import webbrowser
+                        import threading
+                        import time
                         viewer_url = f"http://localhost:8000/web/view_results.html?file={entry}"
                         # Open browser after a short delay to let the server boot
                         def open_browser():
@@ -624,8 +633,10 @@ def main(channel, channels, limit, top, json_mode, start_date, end_date, refresh
             console.print("\n[bold red][!] Session expired or invalid.[/bold red] Deleting saved session...")
             for f in [SESSION_FILE, CONFIG_FILE]:
                 if os.path.exists(f):
-                    try: os.remove(f)
-                    except: pass
+                    try:
+                        os.remove(f)
+                    except Exception:
+                        pass
             console.print("[bold yellow][*] Please re-run the script to authenticate with fresh credentials.[/bold yellow]")
             return
         except Exception as e:

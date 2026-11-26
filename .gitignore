@@ -19,5 +19,12 @@ data/
 
 # Web viewer registry
 files.json
-# Test cache
+
+# Test and coverage artifacts
 .pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/

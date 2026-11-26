@@ -46,34 +46,34 @@ def test_json_rejects_watch_mode(runner):
     }
 
 
-def test_json_missing_credentials_reports_error_without_prompt(monkeypatch, runner):
+def test_json_missing_credentials_reports_error_without_prompt(monkeypatch, runner, tmp_path):
     clear_credentials(monkeypatch)
+    monkeypatch.chdir(tmp_path)
 
-    with runner.isolated_filesystem():
-        result = runner.invoke(main, ['--json', '--channel', '@chan'])
+    result = runner.invoke(main, ['--json', '--channel', '@chan'])
 
     assert result.exit_code == 1
     assert payload(result)['error'].startswith('Telegram API credentials missing')
     assert 'Enter your API ID' not in result.stdout
 
 
-def test_json_batch_channels_does_not_prompt_for_channel(monkeypatch, runner):
+def test_json_batch_channels_does_not_prompt_for_channel(monkeypatch, runner, tmp_path):
     clear_credentials(monkeypatch)
+    monkeypatch.chdir(tmp_path)
 
-    with runner.isolated_filesystem():
-        result = runner.invoke(main, ['--json', '--channels', '@a', '--channels', '@b'])
+    result = runner.invoke(main, ['--json', '--channels', '@a', '--channels', '@b'])
 
     assert result.exit_code == 1
     assert payload(result)['error'].startswith('Telegram API credentials missing')
     assert 'Target Channel' not in result.stdout
 
 
-def test_json_missing_session_reports_error(monkeypatch, runner):
+def test_json_missing_session_reports_error(monkeypatch, runner, tmp_path):
     monkeypatch.setenv('API_ID', '12345')
     monkeypatch.setenv('API_HASH', 'abc')
+    monkeypatch.chdir(tmp_path)
 
-    with runner.isolated_filesystem():
-        result = runner.invoke(main, ['--json', '--channel', '@chan'])
+    result = runner.invoke(main, ['--json', '--channel', '@chan'])
 
     assert result.exit_code == 1
     assert 'No authorized Telegram session' in payload(result)['error']

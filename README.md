@@ -1,24 +1,31 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Telegram Reactions Sorter logo" width="140">
+  <img src="assets/logo.png" alt="Telegram Reactions Sorter logo" width="96">
 </p>
 
-# Telegram Reactions Sorter
+<h1 align="center">Telegram Reactions Sorter</h1>
 
-![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
-![Telethon](https://img.shields.io/badge/Telethon-MTProto-26A5E4?logo=telegram&logoColor=white)
-![Pandas](https://img.shields.io/badge/Pandas-Data-150458?logo=pandas&logoColor=white)
-![Rich](https://img.shields.io/badge/Rich-CLI-blueviolet)
-![Chart.js](https://img.shields.io/badge/Chart.js-Web-FF6384?logo=chartdotjs&logoColor=white)
-![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
-![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)
-[![tests](https://github.com/zis3c/Tgreactsort/actions/workflows/tests.yml/badge.svg)](https://github.com/zis3c/Tgreactsort/actions/workflows/tests.yml)
+<p align="center">
+  Fetch, rank and visualize Telegram channel messages by reaction count.<br>
+  JSON output for agents, dark-mode dashboard for humans.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&amp;logoColor=white" alt="Python 3.9+">
+  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT license">
+  <img src="https://img.shields.io/badge/Telethon-MTProto-26A5E4?logo=telegram&amp;logoColor=white" alt="Telethon MTProto">
+  <img src="https://img.shields.io/badge/Pandas-Data-150458?logo=pandas&amp;logoColor=white" alt="Pandas">
+  <img src="https://img.shields.io/badge/Rich-CLI-blueviolet" alt="Rich CLI">
+  <img src="https://img.shields.io/badge/Chart.js-Web-FF6384?logo=chartdotjs&amp;logoColor=white" alt="Chart.js">
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Windows, macOS and Linux">
+  <img src="https://img.shields.io/badge/PRs-Welcome-brightgreen.svg" alt="PRs welcome">
+  <a href="https://github.com/zis3c/Tgreactsort/actions/workflows/tests.yml"><img src="https://github.com/zis3c/Tgreactsort/actions/workflows/tests.yml/badge.svg" alt="CI status"></a>
+</p>
 
 <p align="center">
   <img src="preview.png" alt="tgreactsort Web Dashboard Preview" width="800">
 </p>
 
-📺 **Video Tutorial:** [**Watch how to use the repo here**](https://youtu.be/VaF5Oofap6E)
+<p align="center">📺 <strong>Video Tutorial:</strong> <a href="https://youtu.be/VaF5Oofap6E"><strong>Watch how to use the repo here</strong></a></p>
 
 A high-performance Telegram channel analytics tool built with Python and `Telethon`. Fetches messages from any channel, ranks them by total reactions, and launches a dark-mode web dashboard for deep engagement analysis.
 
@@ -64,6 +71,7 @@ A high-performance Telegram channel analytics tool built with Python and `Teleth
 
 ```
 tgreactsort/
+├── .github/workflows/      # GitHub Actions: lint + tests matrix
 ├── assets/                 # Brand logo for the marketplace listing
 │   ├── logo.png
 │   └── logo.svg
@@ -71,9 +79,10 @@ tgreactsort/
 ├── sort_reactions.py       # Main CLI - fetch, sort, and export messages
 ├── open_viewer.bat         # Windows shortcut to start HTTP server and open dashboard
 ├── requirements.txt        # Python dependencies
-├── requirements-dev.txt    # Test dependencies
+├── requirements-dev.txt    # Test and lint dependencies
 ├── pytest.ini              # Test configuration
-├── tests/                  # Unit tests for CLI and helpers
+├── ruff.toml               # Lint configuration
+├── tests/                  # Unit tests for CLI, helpers and skill packaging
 ├── .env.example            # Credentials template (copy to .env)
 ├── config.json             # Saved API credentials - auto-created, gitignored
 ├── files.json              # Registry of imported CSVs used by the web viewer
@@ -149,7 +158,9 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-The tests cover the JSON output contract, JSON error paths, batch mode, reaction label resolution, message links and record formatting. No Telegram account or network access is needed.
+The tests cover the JSON output contract, JSON error paths, batch mode, reaction label resolution, message links, record formatting and SKILL.md packaging. No Telegram account or network access is needed.
+
+CI runs the suite on Ubuntu and Windows with Python 3.9, 3.11 and 3.13, and runs Ruff on every push and pull request.
 
 ## Contributing
 
